@@ -18,6 +18,12 @@ namespace SanAndreasSoundTest
     public class AudioManagerScript : MonoBehaviour
     {
         /// <summary>
+        /// Use external OGG decoder toggle
+        /// </summary>
+        [SerializeField]
+        private Toggle useExternalOGGDecoderToggle;
+
+        /// <summary>
         /// Audio progress slider
         /// </summary>
         [SerializeField]
@@ -118,6 +124,17 @@ namespace SanAndreasSoundTest
         /// Enable audio progress slider change event
         /// </summary>
         private bool enableAudioProgressSliderChangeEvent = true;
+
+        /// <summary>
+        /// Use external OGG decoder
+        /// </summary>
+        private bool UseExternalOGGDecoder
+        {
+            get
+            {
+                return ((useExternalOGGDecoderToggle == null) ? false : useExternalOGGDecoderToggle.isOn);
+            }
+        }
 
         /// <summary>
         /// GTA audio files directory
@@ -408,6 +425,60 @@ namespace SanAndreasSoundTest
         }
 
         /// <summary>
+        /// Streams audio clip
+        /// </summary>
+        private AudioClip StreamsAudioClip
+        {
+            get
+            {
+                AudioClip ret = null;
+                DateTime time = DateTime.Now;
+                string streams_file_name = StreamsFileName;
+                int streams_bank_index = StreamsBankIndex;
+                string key = streams_file_name + "." + streams_bank_index;
+                if (streamsAudioClips.ContainsKey(key))
+                {
+                    ret = streamsAudioClips[key];
+                }
+                else
+                {
+                    if ((gtaAudioFiles != null) && (streams_bank_index >= 0))
+                    {
+                        try
+                        {
+                            using (Stream audio_stream = gtaAudioFiles.OpenStreamsAudioStreamByName(streams_file_name, (uint)streams_bank_index))
+                            {
+                                if (audio_stream != null)
+                                {
+                                    using (NVorbis.VorbisReader reader = new NVorbis.VorbisReader(audio_stream, false))
+                                    {
+                                        float[] float_pcm = new float[reader.TotalSamples];
+                                        if (reader.ReadSamples(float_pcm, 0, float_pcm.Length) == float_pcm.Length)
+                                        {
+                                            ret = AudioClip.Create(key, float_pcm.Length, reader.Channels, reader.SampleRate, false);
+                                            ret.SetData(float_pcm, 0);
+                                            streamsAudioClips.Add(key, ret);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e);
+                        }
+                    }
+                }
+                if (ret != null)
+                {
+                    TimeSpan time_span = DateTime.Now - time;
+                    Debug.Log("\"" + ret.name + "\" took " + time_span.TotalSeconds + " seconds.");
+                }
+                return ret;
+            }
+        }
+
+        /// <summary>
         /// Audio progress
         /// </summary>
         public float AudioProgress
@@ -474,9 +545,10 @@ namespace SanAndreasSoundTest
         /// <summary>
         /// Play streams audio coroutine
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Nothing</returns>
         private IEnumerator PlayStreamsAudioCoroutine()
         {
+            DateTime time = DateTime.Now;
             int streams_bank_index = StreamsBankIndex;
             string streams_file_name = StreamsFileName;
             string key = streams_file_name + "." + streams_bank_index;
@@ -552,6 +624,11 @@ namespace SanAndreasSoundTest
                 audioSource.Play();
                 StatusText = "Playing \"" + clip.name + "\"";
             }
+            if (clip != null)
+            {
+                TimeSpan time_span = DateTime.Now - time;
+                Debug.Log("\"" + clip.name + "\" took " + time_span.TotalSeconds + " seconds.");
+            }
         }
 
         /// <summary>
@@ -559,7 +636,19 @@ namespace SanAndreasSoundTest
         /// </summary>
         public void PlayStreamsAudio()
         {
-            StartCoroutine(PlayStreamsAudioCoroutine());
+            if (UseExternalOGGDecoder)
+            {
+                AudioClip clip = StreamsAudioClip;
+                if ((audioSource != null) && (clip != null))
+                {
+                    audioSource.clip = clip;
+                    audioSource.Play();
+                }
+            }
+            else
+            {
+                StartCoroutine(PlayStreamsAudioCoroutine());
+            }
         }
 
         /// <summary>

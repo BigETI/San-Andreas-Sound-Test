@@ -116,6 +116,11 @@ namespace SanAndreasSoundTest
         private Dictionary<string, AudioClip> streamsAudioClips = new Dictionary<string, AudioClip>();
 
         /// <summary>
+        /// Streams audio streams
+        /// </summary>
+        private Dictionary<string, AudioStream> streamsAudioStreams = new Dictionary<string, AudioStream>();
+
+        /// <summary>
         /// GTA audio files
         /// </summary>
         private GTAAudioFiles gtaAudioFiles;
@@ -425,60 +430,6 @@ namespace SanAndreasSoundTest
         }
 
         /// <summary>
-        /// Streams audio clip
-        /// </summary>
-        private AudioClip StreamsAudioClip
-        {
-            get
-            {
-                AudioClip ret = null;
-                DateTime time = DateTime.Now;
-                string streams_file_name = StreamsFileName;
-                int streams_bank_index = StreamsBankIndex;
-                string key = streams_file_name + "." + streams_bank_index;
-                if (streamsAudioClips.ContainsKey(key))
-                {
-                    ret = streamsAudioClips[key];
-                }
-                else
-                {
-                    if ((gtaAudioFiles != null) && (streams_bank_index >= 0))
-                    {
-                        try
-                        {
-                            using (Stream audio_stream = gtaAudioFiles.OpenStreamsAudioStreamByName(streams_file_name, (uint)streams_bank_index))
-                            {
-                                if (audio_stream != null)
-                                {
-                                    using (NVorbis.VorbisReader reader = new NVorbis.VorbisReader(audio_stream, false))
-                                    {
-                                        float[] float_pcm = new float[reader.TotalSamples];
-                                        if (reader.ReadSamples(float_pcm, 0, float_pcm.Length) == float_pcm.Length)
-                                        {
-                                            ret = AudioClip.Create(key, float_pcm.Length, reader.Channels, reader.SampleRate, false);
-                                            ret.SetData(float_pcm, 0);
-                                            streamsAudioClips.Add(key, ret);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError(e);
-                        }
-                    }
-                }
-                if (ret != null)
-                {
-                    TimeSpan time_span = DateTime.Now - time;
-                    Debug.Log("\"" + ret.name + "\" took " + time_span.TotalSeconds + " seconds.");
-                }
-                return ret;
-            }
-        }
-
-        /// <summary>
         /// Audio progress
         /// </summary>
         public float AudioProgress
@@ -526,6 +477,14 @@ namespace SanAndreasSoundTest
             }
             sfxAudioClips.Clear();
             streamsAudioClips.Clear();
+            foreach (AudioStream audio_stream in streamsAudioStreams.Values)
+            {
+                if (audio_stream != null)
+                {
+                    audio_stream.Dispose();
+                }
+            }
+            streamsAudioStreams.Clear();
             StatusText = "Select a GTA audio files directory";
         }
 
@@ -632,18 +591,56 @@ namespace SanAndreasSoundTest
         }
 
         /// <summary>
+        /// Streams stream audio
+        /// </summary>
+        private void StreamsStreamAudio()
+        {
+            AudioStream audio_stream = null;
+            DateTime time = DateTime.Now;
+            string streams_file_name = StreamsFileName;
+            int streams_bank_index = StreamsBankIndex;
+            string key = streams_file_name + "." + streams_bank_index;
+            if (streamsAudioStreams.ContainsKey(key))
+            {
+                audio_stream = streamsAudioStreams[key];
+            }
+            else
+            {
+                if ((gtaAudioFiles != null) && (streams_bank_index >= 0))
+                {
+                    try
+                    {
+                        Stream stream = gtaAudioFiles.OpenStreamsAudioStreamByName(streams_file_name, (uint)streams_bank_index);
+                        if (stream != null)
+                        {
+                            audio_stream = new AudioStream(stream, key, true);
+                            streamsAudioStreams.Add(key, audio_stream);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(e);
+                    }
+                }
+            }
+            if ((audioSource != null) && (audio_stream != null))
+            {
+                audioSource.time = 0.0f;
+                audioSource.clip = audio_stream.AudioClip;
+                audioSource.Play();
+                TimeSpan time_span = DateTime.Now - time;
+                Debug.Log("\"" + key + "\" took " + time_span.TotalSeconds + " seconds.");
+            }
+        }
+
+        /// <summary>
         /// Play streams audio
         /// </summary>
         public void PlayStreamsAudio()
         {
             if (UseExternalOGGDecoder)
             {
-                AudioClip clip = StreamsAudioClip;
-                if ((audioSource != null) && (clip != null))
-                {
-                    audioSource.clip = clip;
-                    audioSource.Play();
-                }
+                StreamsStreamAudio();
             }
             else
             {

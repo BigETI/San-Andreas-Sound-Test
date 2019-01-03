@@ -293,6 +293,7 @@ namespace SanAndreasSoundTest
                 if (sfxBankIndexText != null)
                 {
                     sfxBankIndexText.text = value.ToString();
+                    UpdateSFXBankSelection();
                 }
             }
         }
@@ -496,6 +497,7 @@ namespace SanAndreasSoundTest
             AudioClip clip = SFXAudioClip;
             if ((audioSource != null) && (clip != null))
             {
+                audioSource.timeSamples = 0;
                 audioSource.clip = clip;
                 audioSource.Play();
             }
@@ -628,6 +630,7 @@ namespace SanAndreasSoundTest
                 audioSource.time = 0.0f;
                 audioSource.clip = audio_stream.AudioClip;
                 audioSource.Play();
+                StatusText = "Playing \"" + audio_stream.AudioClip.name + "\"";
                 TimeSpan time_span = DateTime.Now - time;
                 Debug.Log("\"" + key + "\" took " + time_span.TotalSeconds + " seconds.");
             }
@@ -679,7 +682,6 @@ namespace SanAndreasSoundTest
         {
             int sfx_file_index = SFXFileIndex;
             int num_banks = 0;
-            int num_audios = 0;
             if (sfx_file_index >= 0)
             {
                 GTAAudioSFXFile[] sfx_audio_files = gtaAudioFiles.SFXAudioFiles;
@@ -691,7 +693,6 @@ namespace SanAndreasSoundTest
                         if (sfx_audio_file != null)
                         {
                             num_banks = sfx_audio_file.NumBanks - 1;
-                            num_audios = sfx_audio_file.NumAudios - 1;
                         }
                     }
                 }
@@ -700,6 +701,31 @@ namespace SanAndreasSoundTest
             {
                 sfxBankSlider.value = 0.0f;
                 sfxBankSlider.maxValue = Mathf.Max(0, num_banks);
+            }
+            UpdateSFXBankSelection();
+        }
+
+        /// <summary>
+        /// Update sfx bank selection
+        /// </summary>
+        private void UpdateSFXBankSelection()
+        {
+            int sfx_file_index = SFXFileIndex;
+            int num_audios = 0;
+            if (sfx_file_index >= 0)
+            {
+                GTAAudioSFXFile[] sfx_audio_files = gtaAudioFiles.SFXAudioFiles;
+                if (sfx_audio_files != null)
+                {
+                    if (sfx_file_index < sfx_audio_files.Length)
+                    {
+                        GTAAudioSFXFile sfx_audio_file = sfx_audio_files[sfx_file_index];
+                        if (sfx_audio_file != null)
+                        {
+                            num_audios = sfx_audio_file.GetNumAudioClipsFromBank((uint)SFXBankIndex) - 1;
+                        }
+                    }
+                }
             }
             if (sfxAudioSlider != null)
             {

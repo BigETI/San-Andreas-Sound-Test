@@ -52,7 +52,7 @@ namespace SanAndreasSoundTest
             {
                 if (File.Exists(defaultSettingsPath))
                 {
-                    using (FileStream stream = File.Open(defaultSettingsPath, FileMode.Open))
+                    using (FileStream stream = File.Open(defaultSettingsPath, FileMode.Open, FileAccess.Read))
                     {
                         using (StreamReader reader = new StreamReader(stream))
                         {
